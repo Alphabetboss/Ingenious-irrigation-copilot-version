@@ -15,35 +15,49 @@ class ZoneEvaluationResult:
 
 
 class GardenAIEngine:
+    """
+    Central AI brain for the irrigation system.
+
+    Responsibilities:
+    - Fuse sensor data, weather, and vision
+    - Detect emergencies (leaks, pressure drops, anomalies)
+    - Recommend ideal watering duration per zone
+    """
+
     def __init__(self, app_context: AppContext):
         self.ctx = app_context
+        self.logger = getattr(self.ctx, "logger", None)
+
         self.runtime = self.ctx.get("ai", "runtime", default="onnx")
         self.models_config = self.ctx.get("ai", "models", default={})
         self.thresholds = self.ctx.get("ai", "thresholds", default={})
 
-        # Placeholders for actual model/runtime objects
         self.vision_model = None
         self.hydration_model = None
 
         self._load_models()
 
+    def _log(self, level: str, msg: str, *args):
+        if self.logger:
+            getattr(self.logger, level)(msg, *args)
+
     def _load_models(self):
-        # Stub: later we’ll actually load ONNX models here
         vision_path = self.models_config.get("vision_health_model")
         hydration_path = self.models_config.get("hydration_model")
-        # For now, just store paths
+
+        # TODO: load ONNX models here when ready
         self.vision_model = vision_path
         self.hydration_model = hydration_path
 
+        self._log(
+            "info",
+            "AI runtime: %s | vision_model=%s | hydration_model=%s",
+            self.runtime,
+            vision_path,
+            hydration_path,
+        )
+
     def evaluate_zone(self, zone_id: int) -> ZoneEvaluationResult:
-        """
-        High-level brain:
-        - Read sensors
-        - Read weather
-        - Run vision (when available)
-        - Detect emergencies
-        - Compute ideal watering duration
-        """
         zone_config = self._get_zone_config(zone_id)
         sensor_data = self._read_zone_sensors(zone_id)
         weather_data = self._get_weather_snapshot()
@@ -66,6 +80,16 @@ class GardenAIEngine:
             f"ideal={ideal_duration:.1f}m, health={vision_health_score:.2f}"
         )
 
+        self._log(
+            "info",
+            "Evaluation → zone=%s ideal=%.1fm health=%.2f emergency=%s reason=%s",
+            zone_id,
+            ideal_duration,
+            vision_health_score,
+            emergency_detected,
+            emergency_reason,
+        )
+
         return ZoneEvaluationResult(
             zone_id=zone_id,
             ideal_duration_minutes=ideal_duration,
@@ -83,16 +107,16 @@ class GardenAIEngine:
         raise ValueError(f"Zone {zone_id} not found in config")
 
     def _read_zone_sensors(self, zone_id: int) -> Dict[str, Any]:
-        # Stub: later we’ll wire actual GPIO/ADC reads
-        # For now, return fake but structured data
+        # TODO: wire real sensors per zone
+        # For now, return structured placeholder data
         return {
-            "pressure": 1.0,
-            "humidity": 0.5,
-            "temperature_c": 28.0,
+            "pressure": 1.0,        # normalized 0–1
+            "humidity": 0.5,        # normalized 0–1
+            "temperature_c": 28.0,  # degrees Celsius
         }
 
     def _get_weather_snapshot(self) -> Dict[str, Any]:
-        # Stub: later we’ll call real weather API
+        # TODO: integrate real weather provider
         return {
             "temp_c": 30.0,
             "humidity": 0.6,
@@ -100,18 +124,20 @@ class GardenAIEngine:
         }
 
     def _estimate_visual_health(self, zone_id: int) -> float:
-        # Stub: later we’ll run ONNX vision model on latest frame
-        # For now, pretend medium-good health
+        # TODO: run ONNX vision model on latest frame for this zone
+        # Placeholder: medium-good health
         return 0.75
 
-    def _detect_emergency(self, sensor_data: Dict[str, Any], health_score: float):
+    def _detect_emergency(
+        self, sensor_data: Dict[str, Any], health_score: float
+    ) -> tuple[bool, Optional[str]]:
         pressure = sensor_data.get("pressure", 1.0)
         emergency_threshold = self.thresholds.get("emergency_pressure_drop", 0.3)
 
         if pressure < emergency_threshold:
             return True, "Pressure drop detected (possible leak or broken pipe)"
 
-        # Later: add visual pooling detection, abnormal runtime, etc.
+        # TODO: add visual pooling detection, abnormal runtime, etc.
         return False, None
 
     def _compute_ideal_duration(
@@ -123,27 +149,26 @@ class GardenAIEngine:
     ) -> float:
         duration = base_duration
 
-        # Adjust for health: if health is low, increase a bit
+        # Health-based adjustment
         if health_score < 0.6:
             duration *= 1.3
         elif health_score > 0.85:
             duration *= 0.9
 
-        # Adjust for temperature
+        # Temperature-based adjustment
         temp_c = weather_data.get("temp_c", 25.0)
         if temp_c > 32:
             duration *= 1.2
         elif temp_c < 10:
             duration *= 0.7
 
-        # Adjust for rain probability
+        # Rain-based adjustment
         rain_prob = weather_data.get("rain_probability", 0.0)
         if rain_prob > 0.6:
             duration *= 0.3
         elif rain_prob > 0.3:
             duration *= 0.7
 
-        # Clamp to sane bounds
         max_runtime = self.thresholds.get("max_continuous_runtime_minutes", 60)
         duration = max(0.0, min(duration, max_runtime))
 
