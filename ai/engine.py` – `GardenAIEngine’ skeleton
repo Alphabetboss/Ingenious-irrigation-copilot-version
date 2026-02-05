@@ -1,0 +1,145 @@
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+
+from core.app_context import AppContext
+
+
+@dataclass
+class ZoneEvaluationResult:
+    zone_id: int
+    ideal_duration_minutes: float
+    health_score: float
+    emergency_detected: bool
+    emergency_reason: Optional[str]
+    notes: str
+
+
+class GardenAIEngine:
+    def __init__(self, app_context: AppContext):
+        self.ctx = app_context
+        self.runtime = self.ctx.get("ai", "runtime", default="onnx")
+        self.models_config = self.ctx.get("ai", "models", default={})
+        self.thresholds = self.ctx.get("ai", "thresholds", default={})
+
+        # Placeholders for actual model/runtime objects
+        self.vision_model = None
+        self.hydration_model = None
+
+        self._load_models()
+
+    def _load_models(self):
+        # Stub: later we’ll actually load ONNX models here
+        vision_path = self.models_config.get("vision_health_model")
+        hydration_path = self.models_config.get("hydration_model")
+        # For now, just store paths
+        self.vision_model = vision_path
+        self.hydration_model = hydration_path
+
+    def evaluate_zone(self, zone_id: int) -> ZoneEvaluationResult:
+        """
+        High-level brain:
+        - Read sensors
+        - Read weather
+        - Run vision (when available)
+        - Detect emergencies
+        - Compute ideal watering duration
+        """
+        zone_config = self._get_zone_config(zone_id)
+        sensor_data = self._read_zone_sensors(zone_id)
+        weather_data = self._get_weather_snapshot()
+        vision_health_score = self._estimate_visual_health(zone_id)
+
+        emergency_detected, emergency_reason = self._detect_emergency(sensor_data, vision_health_score)
+
+        base_duration = zone_config["default_schedule"]["base_duration_minutes"]
+        ideal_duration = self._compute_ideal_duration(
+            base_duration=base_duration,
+            sensor_data=sensor_data,
+            weather_data=weather_data,
+            health_score=vision_health_score,
+        )
+
+        notes = f"Zone {zone_id}: base={base_duration}m, ideal={ideal_duration:.1f}m, health={vision_health_score:.2f}"
+
+        return ZoneEvaluationResult(
+            zone_id=zone_id,
+            ideal_duration_minutes=ideal_duration,
+            health_score=vision_health_score,
+            emergency_detected=emergency_detected,
+            emergency_reason=emergency_reason,
+            notes=notes,
+        )
+
+    def _get_zone_config(self, zone_id: int) -> Dict[str, Any]:
+        zones = self.ctx.get("zones", default=[])
+        for z in zones:
+            if z.get("id") == zone_id:
+                return z
+        raise ValueError(f"Zone {zone_id} not found in config")
+
+    def _read_zone_sensors(self, zone_id: int) -> Dict[str, Any]:
+        # Stub: later we’ll wire actual GPIO/ADC reads
+        # For now, return fake but structured data
+        return {
+            "pressure": 1.0,
+            "humidity": 0.5,
+            "temperature_c": 28.0,
+        }
+
+    def _get_weather_snapshot(self) -> Dict[str, Any]:
+        # Stub: later we’ll call real weather API
+        return {
+            "temp_c": 30.0,
+            "humidity": 0.6,
+            "rain_probability": 0.2,
+        }
+
+    def _estimate_visual_health(self, zone_id: int) -> float:
+        # Stub: later we’ll run ONNX vision model on latest frame
+        # For now, pretend medium-good health
+        return 0.75
+
+    def _detect_emergency(self, sensor_data: Dict[str, Any], health_score: float):
+        pressure = sensor_data.get("pressure", 1.0)
+        emergency_threshold = self.thresholds.get("emergency_pressure_drop", 0.3)
+
+        if pressure < emergency_threshold:
+            return True, "Pressure drop detected (possible leak or broken pipe)"
+
+        # Later: add visual pooling detection, abnormal runtime, etc.
+        return False, None
+
+    def _compute_ideal_duration(
+        self,
+        base_duration: float,
+        sensor_data: Dict[str, Any],
+        weather_data: Dict[str, Any],
+        health_score: float,
+    ) -> float:
+        duration = base_duration
+
+        # Adjust for health: if health is low, increase a bit
+        if health_score < 0.6:
+            duration *= 1.3
+        elif health_score > 0.85:
+            duration *= 0.9
+
+        # Adjust for temperature
+        temp_c = weather_data.get("temp_c", 25.0)
+        if temp_c > 32:
+            duration *= 1.2
+        elif temp_c < 10:
+            duration *= 0.7
+
+        # Adjust for rain probability
+        rain_prob = weather_data.get("rain_probability", 0.0)
+        if rain_prob > 0.6:
+            duration *= 0.3
+        elif rain_prob > 0.3:
+            duration *= 0.7
+
+        # Clamp to sane bounds
+        max_runtime = self.thresholds.get("max_continuous_runtime_minutes", 60)
+        duration = max(0.0, min(duration, max_runtime))
+
+        return duration
