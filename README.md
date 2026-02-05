@@ -1,3 +1,17 @@
+![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)
+
+
+## About Me
+
+Hi, I’m **Austin** — a builder who lives at the intersection of hardware, AI, and creative engineering. I like taking messy, real‑world problems and turning them into modular, scalable systems that feel alive. Whether it’s an AI‑driven irrigation platform, a car dashboard with personality, or a custom hardware setup, I’m always pushing for solutions that are both technically solid and visually engaging.
+
+I work fast, iterate constantly, and prefer explicit, maintainable architectures over quick hacks. Most of my projects blend Python, FastAPI, OpenCV, and hardware integrations like Raspberry Pi, relays, sensors, and custom wiring. I enjoy designing systems that don’t just function — they *react*, adapt, and communicate.
+
+I’m currently building **Ingenious Irrigation**, a next‑generation smart watering system that uses computer vision, weather intelligence, and modular zone logic to make landscapes self‑aware. It’s part automation, part AI, part creative experiment.
+
+If you’re into AI‑powered hardware, interactive dashboards, or futuristic automation, you’ll probably find something interesting here. I’m always open to ideas, contributions, and conversations with people who like to build ambitious things.
+
+
 ## License
 
 This project is licensed under the **Apache License 2.0**.
