@@ -6,31 +6,37 @@ from core.app_context import AppContext
 
 class IrrigationController:
     """
-    Handles low-level control of irrigation zones via relay outputs.
+    Low-level irrigation control.
 
-    - Maps zone IDs to relay pins
+    - Maps logical zones → relay pins
     - Supports simulation mode (no GPIO)
-    - Future-ready for real Raspberry Pi GPIO integration
+    - Supports active_low / active_high relay boards
+    - Enforces max runtime safety
     """
 
     def __init__(self, ctx: AppContext):
         self.ctx = ctx
         self.logger = getattr(self.ctx, "logger", None)
 
-        self.simulation = ctx.simulation_mode
+        self.simulation: bool = ctx.simulation_mode
         self.relay_config: Dict[str, Any] = ctx.get("hardware", "relay", default={})
         self.zone_pin_map: Dict[str, int] = self.relay_config.get("in_pins", {})
         self.relay_type: str = self.relay_config.get("type", "active_low")
 
-        self._gpio_initialized = False
-        self._gpio = None  # placeholder for RPi.GPIO or similar
+        self._gpio_initialized: bool = False
+        self._gpio = None  # type: ignore[assignment]
+
+        self.max_runtime_minutes: float = ctx.get(
+            "ai", "thresholds", "max_continuous_runtime_minutes", default=60
+        )
 
         self._log(
             "info",
-            "IrrigationController initialized. simulation=%s relay_type=%s pins=%s",
+            "IrrigationController initialized. simulation=%s relay_type=%s pins=%s max_runtime=%sm",
             self.simulation,
             self.relay_type,
             self.zone_pin_map,
+            self.max_runtime_minutes,
         )
 
         if not self.simulation:
@@ -52,24 +58,25 @@ class IrrigationController:
 
             for zone_key, pin in self.zone_pin_map.items():
                 self._gpio.setup(pin, GPIO.OUT)
-                # Ensure relays start in OFF state
+                # Ensure relays start OFF
                 self._set_pin_state(pin, False)
 
             self._gpio_initialized = True
             self._log("info", "GPIO initialized for relay control.")
-        except ImportError:
+        except Exception as e:  # ImportError or runtime error
             self._log(
-                "error",
-                "RPi.GPIO not available. Hardware control disabled. "
-                "Enable simulation_mode=true or install RPi.GPIO.",
+                "exception",
+                "Failed to initialize GPIO; falling back to simulation mode: %s",
+                e,
             )
             self.simulation = True
 
-    def _get_pin_for_zone(self, zone_id: int) -> int:
+    def _get_pin_for_zone(self, zone_id: int) -> Optional[int]:
         key = f"zone_{zone_id}"
-        if key not in self.zone_pin_map:
-            raise ValueError(f"No relay pin configured for {key}")
-        return self.zone_pin_map[key]
+        pin = self.zone_pin_map.get(key)
+        if pin is None:
+            self._log("error", "No relay pin configured for %s", key)
+        return pin
 
     def _set_pin_state(self, pin: int, on: bool):
         """
@@ -105,11 +112,18 @@ class IrrigationController:
     def water_zone(self, zone_id: int, duration_minutes: float):
         """
         Activate a zone for the specified duration (in minutes).
+        Enforces max runtime safety.
         """
         pin = self._get_pin_for_zone(zone_id)
-        duration_seconds = max(0.0, duration_minutes * 60.0)
+        if pin is None:
+            self._log("error", "Cannot water zone %s: no pin configured", zone_id)
+            return
 
-        if duration_seconds == 0:
+        # Safety clamp
+        duration_minutes = max(0.0, min(duration_minutes, self.max_runtime_minutes))
+        duration_seconds = duration_minutes * 60.0
+
+        if duration_seconds <= 0:
             self._log(
                 "warning",
                 "Requested watering duration is 0 seconds for zone %s. Skipping.",
@@ -129,7 +143,7 @@ class IrrigationController:
         self._set_pin_state(pin, True)
         try:
             if self.simulation:
-                # In simulation, just sleep a tiny bit to simulate action
+                # In simulation, we don't block for full duration
                 time.sleep(min(1.0, duration_seconds))
             else:
                 time.sleep(duration_seconds)
