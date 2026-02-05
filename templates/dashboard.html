@@ -1,20 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Ingenious Irrigation</title>
-    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <meta charset="UTF-8">
+    <title>Ingenious Irrigation Dashboard</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #050816;
+            color: #f5f5f5;
+            margin: 0;
+            padding: 2rem;
+        }
+        h1 {
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            color: #9ca3af;
+            margin-bottom: 2rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background: radial-gradient(circle at top left, #1f2937, #020617);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.6);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+        .card h2 {
+            margin: 0 0 0.5rem 0;
+        }
+        .pill {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+        }
+        .pill.emergency {
+            background: rgba(248, 113, 113, 0.15);
+            color: #fca5a5;
+        }
+        .metric {
+            font-size: 0.9rem;
+            margin: 0.15rem 0;
+            color: #e5e7eb;
+        }
+        .metric span {
+            color: #9ca3af;
+        }
+        .weather {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #e5e7eb;
+        }
+    </style>
 </head>
 <body>
-<h1>💧 Ingenious Irrigation</h1>
+    <h1>Ingenious Irrigation</h1>
+    <div class="subtitle">AI‑driven hydration for living systems.</div>
 
-<div class="panel">
-    <label>Start Time</label>
-    <input type="time" id="startTime" value="{{ schedule.start_time }}">
-    <label>Duration (min)</label>
-    <input type="number" id="duration" value="{{ schedule.duration }}">
-    <button onclick="save()">Save</button>
-</div>
+    <div id="app">
+        Loading dashboard...
+    </div>
 
-<script src="/static/js/dashboard.js"></script>
+    <script>
+        async function loadDashboard() {
+            try {
+                const res = await fetch("/dashboard/summary");
+                const data = await res.json();
+
+                const container = document.getElementById("app");
+
+                const zonesHtml = data.zones.map(z => `
+                    <div class="card">
+                        <h2>${z.name || ("Zone " + z.zone_id)}</h2>
+                        <div class="pill ${z.emergency_detected ? "emergency" : ""}">
+                            ${z.emergency_detected ? "Emergency" : "Stable"}
+                        </div>
+                        <p class="metric"><span>Ideal duration:</span> ${z.ideal_duration_minutes.toFixed(1)} min</p>
+                        <p class="metric"><span>Health score:</span> ${(z.health_score * 100).toFixed(0)}%</p>
+                        ${z.emergency_detected ? `<p class="metric"><span>Reason:</span> ${z.emergency_reason}</p>` : ""}
+                    </div>
+                `).join("");
+
+                const weather = data.weather || {};
+                const weatherHtml = `
+                    <div class="weather">
+                        <strong>Weather snapshot</strong><br/>
+                        Temp: ${weather.temp_c !== undefined ? weather.temp_c.toFixed(1) + "°C" : "—"}<br/>
+                        Humidity: ${weather.humidity !== undefined ? (weather.humidity * 100).toFixed(0) + "%" : "—"}<br/>
+                        Rain probability: ${weather.rain_probability !== undefined ? (weather.rain_probability * 100).toFixed(0) + "%" : "—"}
+                    </div>
+                `;
+
+                container.innerHTML = `
+                    <div class="grid">
+                        ${zonesHtml}
+                    </div>
+                    ${weatherHtml}
+                `;
+            } catch (e) {
+                document.getElementById("app").innerText = "Failed to load dashboard.";
+                console.error(e);
+            }
+        }
+
+        loadDashboard();
+        setInterval(loadDashboard, 30000);
+    </script>
 </body>
 </html>
