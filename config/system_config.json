@@ -1,0 +1,109 @@
+{
+  "system": {
+    "name": "Ingenious Irrigation",
+    "environment": "pi", 
+    "simulation_mode": true,
+    "log_level": "INFO"
+  },
+
+  "hardware": {
+    "board": "raspberry_pi",
+    "relay": {
+      "type": "active_low",
+      "vcc_voltage": 5,
+      "in_pins": {
+        "zone_1": 17,
+        "zone_2": 27
+      }
+    },
+    "sensors": {
+      "zone_1": {
+        "pressure_pin": 0,
+        "humidity_pin": 1,
+        "temperature_pin": 2
+      },
+      "zone_2": {
+        "pressure_pin": 3,
+        "humidity_pin": 4,
+        "temperature_pin": 5
+      }
+    }
+  },
+
+  "zones": [
+    {
+      "id": 1,
+      "name": "Front Yard",
+      "grass_type": "bermuda",
+      "soil_type": "loam",
+      "default_schedule": {
+        "enabled": true,
+        "start_time": "05:00",
+        "base_duration_minutes": 15
+      }
+    },
+    {
+      "id": 2,
+      "name": "Back Yard",
+      "grass_type": "st_augustine",
+      "soil_type": "clay",
+      "default_schedule": {
+        "enabled": true,
+        "start_time": "05:30",
+        "base_duration_minutes": 20
+      }
+    }
+  ],
+
+  "ai": {
+    "runtime": "onnx",
+    "models": {
+      "vision_health_model": "models/grass_health.onnx",
+      "hydration_model": "models/hydration_recommendation.onnx"
+    },
+    "thresholds": {
+      "emergency_pressure_drop": 0.3,
+      "max_continuous_runtime_minutes": 60,
+      "min_health_score": 0.6
+    }
+  },
+
+  "weather": {
+    "provider": "openweather",
+    "api_key": "REPLACE_ME",
+    "location": {
+      "city": "Pearland",
+      "state": "TX",
+      "country": "US"
+    },
+    "adjustment": {
+      "rain_skip_enabled": true,
+      "rain_probability_threshold": 0.6,
+      "high_temp_threshold_c": 35,
+      "low_temp_threshold_c": 5
+    }
+  },
+
+  "scheduler": {
+    "backend": "sqlite",
+    "database_path": "data/scheduler.db",
+    "tick_interval_seconds": 60
+  },
+
+  "api": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "auth": {
+      "mode": "local_only"
+    }
+  },
+
+  "logging": {
+    "directory": "data/logs",
+    "rotation": {
+      "enabled": true,
+      "max_size_mb": 10,
+      "backup_count": 5
+    }
+  }
+}
