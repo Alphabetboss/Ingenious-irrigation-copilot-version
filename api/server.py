@@ -1,9 +1,13 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from core.app_context import AppContext
 from ai.engine import GardenAIEngine, ZoneEvaluationResult
 from irrigation.controller import IrrigationController
+from weather.weather_service import WeatherService
+from api.dashboard_api import create_dashboard_router
 
 
 class ZoneEvaluationResponse(BaseModel):
@@ -37,12 +41,22 @@ def create_api_app(
     ctx: AppContext,
     ai_engine: GardenAIEngine,
     irrigation_controller: IrrigationController,
+    weather_service: WeatherService,
 ) -> FastAPI:
     app = FastAPI(
         title="Ingenious Irrigation API",
-        description="AI-driven smart irrigation control and monitoring.",
-        version="0.1.0",
+        description="AI-driven irrigation orchestration for living systems.",
+        version="0.2.0",
     )
+
+    # Static + templates (for dashboard.html)
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    def root():
+        # Simple redirect to dashboard UI
+        with open("templates/dashboard.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read(), status_code=200)
 
     @app.get("/health", tags=["system"])
     def health_check():
@@ -98,5 +112,14 @@ def create_api_app(
                 else "Watering command executed on hardware"
             ),
         )
+
+    # Dashboard JSON API
+    dashboard_router = create_dashboard_router(
+        ctx=ctx,
+        ai_engine=ai_engine,
+        irrigation_controller=irrigation_controller,
+        weather_service=weather_service,
+    )
+    app.include_router(dashboard_router)
 
     return app
