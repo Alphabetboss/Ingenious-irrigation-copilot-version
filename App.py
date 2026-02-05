@@ -3,39 +3,27 @@ import signal
 import sys
 import threading
 from contextlib import contextmanager
-from typing import List
 
 import uvicorn
 
 from core.app_context import AppContext
-from ai.engine import GardenAIEngine
+from core.config_loader import load_system_config
+from core.logger import configure_root_logger
+from core.system_orchestrator import SystemOrchestrator
 from api.server import create_api_app
-from irrigation.controller import IrrigationController
-
-
-LOG_FORMAT = "[%(asctime)s] [%(levelname)s] %(name)s: %(message)s"
-
-
-def configure_logging(ctx: AppContext) -> logging.Logger:
-    log_level_str = ctx.get("system", "log_level", default="INFO")
-    level = getattr(logging, log_level_str.upper(), logging.INFO)
-
-    logging.basicConfig(level=level, format=LOG_FORMAT)
-    logger = logging.getLogger("ingenious_irrigation")
-
-    logger.info("Logging initialized with level: %s", log_level_str.upper())
-    return logger
-
-
-def get_zone_ids(ctx: AppContext) -> List[int]:
-    zones = ctx.get("zones", default=[])
-    return [z.get("id") for z in zones if "id" in z]
+from weather.weather_service import WeatherService
 
 
 @contextmanager
 def application_context():
-    ctx = AppContext()
-    logger = configure_logging(ctx)
+    # Load config once for logger bootstrap
+    raw_config = load_system_config()
+    ctx = AppContext()  # AppContext will load config again and watch for changes
+
+    # Attach config to context before logger so logger can use it
+    ctx.config = raw_config
+
+    logger = configure_root_logger(raw_config)
     ctx.logger = logger
 
     logger.info("System name: %s", ctx.get("system", "name", default="Ingenious Irrigation"))
@@ -49,40 +37,26 @@ def application_context():
         ctx.stop()
 
 
-def run_startup_diagnostics(logger: logging.Logger, ai_engine: GardenAIEngine, ctx: AppContext):
-    zone_ids = get_zone_ids(ctx)
-    if not zone_ids:
-        logger.warning("No zones configured in system_config.json")
-        return
-
-    logger.info("Running startup AI evaluation for zones: %s", zone_ids)
-    for zone_id in zone_ids:
-        try:
-            result = ai_engine.evaluate_zone(zone_id)
-            logger.info(
-                "Zone %s → ideal=%.1fm, health=%.2f, emergency=%s, reason=%s",
-                zone_id,
-                result.ideal_duration_minutes,
-                result.health_score,
-                result.emergency_detected,
-                result.emergency_reason,
-            )
-        except Exception as e:
-            logger.exception("Error evaluating zone %s at startup: %s", zone_id, e)
-
-
 def main():
     with application_context() as ctx:
         logger: logging.Logger = ctx.logger  # type: ignore[assignment]
 
-        ai_engine = GardenAIEngine(ctx)
-        ctx.ai_engine = ai_engine
+        # High-level orchestrator wires AI, irrigation, scheduler, health monitor
+        orchestrator = SystemOrchestrator(ctx)
+        orchestrator.run_startup_checks()
+        orchestrator.start_background_services()
 
-        irrigation_controller = IrrigationController(ctx)
+        # Weather service for API/dashboard
+        weather_service = WeatherService(ctx)
 
-        run_startup_diagnostics(logger, ai_engine, ctx)
+        # Build API app
+        app = create_api_app(
+            ctx=ctx,
+            ai_engine=orchestrator.ai_engine,
+            irrigation_controller=orchestrator.irrigation_controller,
+            weather_service=weather_service,
+        )
 
-        app = create_api_app(ctx, ai_engine, irrigation_controller)
         host = ctx.get("api", "host", default="127.0.0.1")
         port = ctx.get("api", "port", default=8000)
 
@@ -114,6 +88,8 @@ def main():
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received, shutting down...")
         finally:
+            logger.info("Stopping orchestrator and background services...")
+            orchestrator.shutdown()
             logger.info("Application shutdown complete.")
             sys.exit(0)
 
