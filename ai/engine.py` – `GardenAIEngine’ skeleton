@@ -49,7 +49,9 @@ class GardenAIEngine:
         weather_data = self._get_weather_snapshot()
         vision_health_score = self._estimate_visual_health(zone_id)
 
-        emergency_detected, emergency_reason = self._detect_emergency(sensor_data, vision_health_score)
+        emergency_detected, emergency_reason = self._detect_emergency(
+            sensor_data, vision_health_score
+        )
 
         base_duration = zone_config["default_schedule"]["base_duration_minutes"]
         ideal_duration = self._compute_ideal_duration(
@@ -59,7 +61,10 @@ class GardenAIEngine:
             health_score=vision_health_score,
         )
 
-        notes = f"Zone {zone_id}: base={base_duration}m, ideal={ideal_duration:.1f}m, health={vision_health_score:.2f}"
+        notes = (
+            f"Zone {zone_id}: base={base_duration}m, "
+            f"ideal={ideal_duration:.1f}m, health={vision_health_score:.2f}"
+        )
 
         return ZoneEvaluationResult(
             zone_id=zone_id,
