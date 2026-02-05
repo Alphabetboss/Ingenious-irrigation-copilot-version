@@ -1,12 +1,14 @@
 from core.app_context import AppContext
 from ai.engine import GardenAIEngine
 from api.server import create_api_app
+from irrigation.controller import IrrigationController
 import uvicorn
 
 
 def main():
     ctx = AppContext()
     ai_engine = GardenAIEngine(ctx)
+    irrigation_controller = IrrigationController(ctx)
 
     # Quick CLI test: evaluate both zones and print
     for zone_id in [1, 2]:
@@ -18,8 +20,8 @@ def main():
             f"reason={result.emergency_reason}"
         )
 
-    # Start API
-    app = create_api_app(ctx, ai_engine)
+    # Start API (only once)
+    app = create_api_app(ctx, ai_engine, irrigation_controller)
     host = ctx.get("api", "host", default="127.0.0.1")
     port = ctx.get("api", "port", default=8000)
 
