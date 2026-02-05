@@ -1,5 +1,4 @@
 import json
-import os
 import threading
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -14,11 +13,15 @@ class ConfigReloader(threading.Thread):
         self._last_mtime = None
 
     def run(self):
-        self._last_mtime = self.config_path.stat().st_mtime
+        try:
+            self._last_mtime = self.config_path.stat().st_mtime
+        except FileNotFoundError:
+            self._last_mtime = None
+
         while not self._stop_event.is_set():
             try:
                 mtime = self.config_path.stat().st_mtime
-                if mtime != self._last_mtime:
+                if self._last_mtime is None or mtime != self._last_mtime:
                     self._last_mtime = mtime
                     self.callback()
                 self._stop_event.wait(2.0)
