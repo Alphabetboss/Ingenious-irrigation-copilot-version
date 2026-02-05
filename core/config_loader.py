@@ -1,14 +1,12 @@
 import json
 from pathlib import Path
+from typing import Dict, Any
 
-CONFIG_PATH = Path("config/system_config.json")
 
-def load_config():
-    """
-    Loads system-wide configuration settings.
-    """
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError("System config file not found.")
+def load_system_config(path: str = "config/system_config.json") -> Dict[str, Any]:
+    config_path = Path(path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    with open(CONFIG_PATH, "r") as f:
+    with config_path.open("r", encoding="utf-8") as f:
         return json.load(f)
