@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from core.app_context import AppContext
 from ai.engine import GardenAIEngine, ZoneEvaluationResult
+from irrigation.controller import IrrigationController
 
 
 class ZoneEvaluationResponse(BaseModel):
@@ -14,7 +15,14 @@ class ZoneEvaluationResponse(BaseModel):
     notes: str
 
 
-def _to_response(result: ZoneEvaluationResult) -> ZoneEvaluationResponse:
+class WaterZoneResponse(BaseModel):
+    zone_id: int
+    used_duration_minutes: float
+    simulation: bool
+    message: str
+
+
+def _to_eval_response(result: ZoneEvaluationResult) -> ZoneEvaluationResponse:
     return ZoneEvaluationResponse(
         zone_id=result.zone_id,
         ideal_duration_minutes=result.ideal_duration_minutes,
@@ -25,16 +33,70 @@ def _to_response(result: ZoneEvaluationResult) -> ZoneEvaluationResponse:
     )
 
 
-def create_api_app(ctx: AppContext, ai_engine: GardenAIEngine) -> FastAPI:
-    app = FastAPI(title="Ingenious Irrigation API")
+def create_api_app(
+    ctx: AppContext,
+    ai_engine: GardenAIEngine,
+    irrigation_controller: IrrigationController,
+) -> FastAPI:
+    app = FastAPI(
+        title="Ingenious Irrigation API",
+        description="AI-driven smart irrigation control and monitoring.",
+        version="0.1.0",
+    )
 
-    @app.get("/zones/{zone_id}/evaluate", response_model=ZoneEvaluationResponse)
+    @app.get("/health", tags=["system"])
+    def health_check():
+        return {
+            "status": "ok",
+            "simulation_mode": ctx.simulation_mode,
+            "system_name": ctx.get("system", "name", default="Ingenious Irrigation"),
+        }
+
+    @app.get(
+        "/zones/{zone_id}/evaluate",
+        response_model=ZoneEvaluationResponse,
+        tags=["zones"],
+    )
     def evaluate_zone(zone_id: int):
         zones = ctx.get("zones", default=[])
         if not any(z.get("id") == zone_id for z in zones):
             raise HTTPException(status_code=404, detail="Zone not found")
 
         result = ai_engine.evaluate_zone(zone_id)
-        return _to_response(result)
+        return _to_eval_response(result)
+
+    @app.post(
+        "/zones/{zone_id}/water",
+        response_model=WaterZoneResponse,
+        tags=["zones"],
+    )
+    def water_zone(zone_id: int):
+        zones = ctx.get("zones", default=[])
+        if not any(z.get("id") == zone_id for z in zones):
+            raise HTTPException(status_code=404, detail="Zone not found")
+
+        eval_result = ai_engine.evaluate_zone(zone_id)
+
+        if eval_result.emergency_detected:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Emergency detected: {eval_result.emergency_reason}",
+            )
+
+        irrigation_controller.water_zone(
+            zone_id=zone_id,
+            duration_minutes=eval_result.ideal_duration_minutes,
+        )
+
+        return WaterZoneResponse(
+            zone_id=zone_id,
+            used_duration_minutes=eval_result.ideal_duration_minutes,
+            simulation=ctx.simulation_mode,
+            message=(
+                "Simulated watering run executed"
+                if ctx.simulation_mode
+                else "Watering command executed on hardware"
+            ),
+        )
 
     return app
