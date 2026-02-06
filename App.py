@@ -52,6 +52,20 @@ def application_context():
     logger.info("Environment: %s", ctx.get("system", "environment", default="unknown"))
     logger.info("Simulation Mode: %s", ctx.simulation_mode)
 
+# Futuristic chrome-green boot banner
+banner = r"""
+   ███████╗██╗███╗   ██╗ ██████╗ ███████╗██╗   ██╗██╗███████╗
+   ██╔════╝██║████╗  ██║██╔════╝ ██╔════╝██║   ██║██║██╔════╝
+   █████╗  ██║██╔██╗ ██║██║  ███╗█████╗  ██║   ██║██║███████╗
+   ██╔══╝  ██║██║╚██╗██║██║   ██║██╔══╝  ╚██╗ ██╔╝██║╚════██║
+   ██║     ██║██║ ╚████║╚██████╔╝███████╗ ╚████╔╝ ██║███████║
+   ╚═╝     ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝  ╚═══╝  ╚═╝╚══════╝
+
+                I N G E N I O U S   I R R I G A T I O N   O S
+--------------------------------------------------------------------------------
+"""
+logger.info("\n%s", banner)
+
     try:
         yield ctx
     finally:
