@@ -66,12 +66,14 @@
         }
     </style>
 </head>
+
 <body>
     <h1>Ingenious Irrigation</h1>
     <div class="subtitle">AI‑driven hydration for living systems.</div>
 
     <div id="app">Loading dashboard...</div>
-    
+
+<!-- Astra Greeting Logic -->
 <script>
 async function checkGreeting() {
     const res = await fetch("/system/greeting");
@@ -101,73 +103,75 @@ window.onload = () => {
 };
 </script>
 
-    <script>
-        async function loadDashboard() {
-            try {
-                const res = await fetch("/dashboard/summary");
-                const data = await res.json();
+<!-- Dashboard Loader -->
+<script>
+async function loadDashboard() {
+    try {
+        const res = await fetch("/dashboard/summary");
+        const data = await res.json();
 
-                const container = document.getElementById("app");
+        const container = document.getElementById("app");
 
-                const zonesHtml = data.zones.map(z => `
-                    <div class="card">
-                        <h3>${z.name || ("Zone " + z.zone_id)}</h3>
-                        <div class="pill ${z.emergency_detected ? "emergency" : ""}">
-                            ${z.emergency_detected ? "Emergency" : "Stable"}
-                        </div>
-                        <p class="metric"><span>Ideal duration:</span> ${z.ideal_duration_minutes.toFixed(1)} min</p>
-                        <p class="metric"><span>Hydration score:</span> ${z.hydration_score}/10</p>
-                        ${z.emergency_detected ? `<p class="metric"><span>Reason:</span> ${z.emergency_reason}</p>` : ""}
+        const zonesHtml = data.zones.map(z => `
+            <div class="card">
+                <h3>${z.name || ("Zone " + z.zone_id)}</h3>
+                <div class="pill ${z.emergency_detected ? "emergency" : ""}">
+                    ${z.emergency_detected ? "Emergency" : "Stable"}
+                </div>
+                <p class="metric"><span>Ideal duration:</span> ${z.ideal_duration_minutes.toFixed(1)} min</p>
+                <p class="metric"><span>Hydration score:</span> ${z.hydration_score}/10</p>
+                ${z.emergency_detected ? `<p class="metric"><span>Reason:</span> ${z.emergency_reason}</p>` : ""}
+            </div>
+        `).join("");
+
+        const w = data.weather || {};
+        const weatherHtml = `
+            <div class="card weather">
+                <h3>Weather snapshot</h3>
+                <p class="metric"><span>Temperature:</span> ${w.temp_c !== undefined ? w.temp_c.toFixed(1) + "°C" : "—"}</p>
+                <p class="metric"><span>Humidity:</span> ${w.humidity !== undefined ? (w.humidity * 100).toFixed(0) + "%" : "—"}</p>
+                <p class="metric"><span>Rain probability:</span> ${w.rain_probability !== undefined ? (w.rain_probability * 100).toFixed(0) + "%" : "—"}</p>
+            </div>
+        `;
+
+        const history = data.recent_hydration || [];
+        const historyHtml = `
+            <div class="card history">
+                <h3>Recent hydration snapshots</h3>
+                ${history.length === 0 ? "<p>No history yet.</p>" : history.map(h => `
+                    <div class="history-item">
+                        <strong>Zone ${h.zone_id}</strong> — score ${h.hydration_score}/10,
+                        ideal ${h.ideal_duration_minutes.toFixed(1)}m
+                        ${h.emergency_detected ? ` <span style="color:#fca5a5;">(Emergency)</span>` : ""}
+                        <br/>
+                        <span style="color:#9ca3af;">${h.timestamp}</span>
                     </div>
-                `).join("");
+                `).join("")}
+            </div>
+        `;
 
-                const w = data.weather || {};
-                const weatherHtml = `
-                    <div class="card weather">
-                        <h3>Weather snapshot</h3>
-                        <p class="metric"><span>Temperature:</span> ${w.temp_c !== undefined ? w.temp_c.toFixed(1) + "°C" : "—"}</p>
-                        <p class="metric"><span>Humidity:</span> ${w.humidity !== undefined ? (w.humidity * 100).toFixed(0) + "%" : "—"}</p>
-                        <p class="metric"><span>Rain probability:</span> ${w.rain_probability !== undefined ? (w.rain_probability * 100).toFixed(0) + "%" : "—"}</p>
+        container.innerHTML = `
+            <div class="grid">
+                <div>
+                    <div class="zones-grid">
+                        ${zonesHtml}
                     </div>
-                `;
+                </div>
+                <div>
+                    ${weatherHtml}
+                    ${historyHtml}
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        document.getElementById("app").innerText = "Failed to load dashboard.";
+        console.error(e);
+    }
+}
 
-                const history = data.recent_hydration || [];
-                const historyHtml = `
-                    <div class="card history">
-                        <h3>Recent hydration snapshots</h3>
-                        ${history.length === 0 ? "<p>No history yet.</p>" : history.map(h => `
-                            <div class="history-item">
-                                <strong>Zone ${h.zone_id}</strong> — score ${h.hydration_score}/10,
-                                ideal ${h.ideal_duration_minutes.toFixed(1)}m
-                                ${h.emergency_detected ? ` <span style="color:#fca5a5;">(Emergency)</span>` : ""}
-                                <br/>
-                                <span style="color:#9ca3af;">${h.timestamp}</span>
-                            </div>
-                        `).join("")}
-                    </div>
-                `;
+loadDashboard();
+setInterval(loadDashboard, 30000);
+</script>
 
-                container.innerHTML = `
-                    <div class="grid">
-                        <div>
-                            <div class="zones-grid">
-                                ${zonesHtml}
-                            </div>
-                        </div>
-                        <div>
-                            ${weatherHtml}
-                            ${historyHtml}
-                        </div>
-                    </div>
-                `;
-            } catch (e) {
-                document.getElementById("app").innerText = "Failed to load dashboard.";
-                console.error(e);
-            }
-        }
-
-        loadDashboard();
-        setInterval(loadDashboard, 30000);
-    </script>
 </body>
 </html>
