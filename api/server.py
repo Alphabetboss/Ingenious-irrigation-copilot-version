@@ -56,15 +56,6 @@ def create_api_app(
         ctx.logger.info("Astra: Preparing verbal greeting...")
         ctx.shared["play_greeting"] = True
 
-    # Static + templates
-    app.mount("/static", StaticFiles(directory="static"), name="static")
-
-    @app.get("/", response_class=HTMLResponse)
-    def root():
-        with open("templates/dashboard.html") as f:
-            return HTMLResponse(content=f.read())
-
-
     # Static + templates (for dashboard.html)
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
