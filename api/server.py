@@ -72,6 +72,11 @@ def create_api_app(
             "simulation_mode": ctx.simulation_mode,
             "system_name": ctx.get("system", "name", default="Ingenious Irrigation"),
         }
+    
+NBC
+
+    play = ctx.shared.pop("play_greeting", False)
+    return {"play": play}
 
     @app.get(
         "/zones/{zone_id}/evaluate",
