@@ -71,6 +71,35 @@
     <div class="subtitle">AI‑driven hydration for living systems.</div>
 
     <div id="app">Loading dashboard...</div>
+    
+<script>
+async function checkGreeting() {
+    const res = await fetch("/system/greeting");
+    const data = await res.json();
+
+    if (data.play) {
+        playAstraGreeting();
+    }
+}
+
+function playAstraGreeting() {
+    const msg = new SpeechSynthesisUtterance(
+        "System online. Hydration matrix stable. Welcome back, Austin. Astra is standing by."
+    );
+    msg.pitch = 1.1;
+    msg.rate = 0.92;
+    msg.volume = 1.0;
+
+    const voices = speechSynthesis.getVoices();
+    msg.voice = voices.find(v => v.name.includes("Female")) || voices[0];
+
+    speechSynthesis.speak(msg);
+}
+
+window.onload = () => {
+    setTimeout(checkGreeting, 500);
+};
+</script>
 
     <script>
         async function loadDashboard() {
