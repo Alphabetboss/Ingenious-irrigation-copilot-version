@@ -43,6 +43,11 @@ def create_api_app(
     irrigation_controller: IrrigationController,
     weather_service: WeatherService,
 ) -> FastAPI:
+    @app.on_event("startup")
+async def startup_voice_greeting():
+    ctx.logger.info("Astra: Preparing verbal greeting...")
+    ctx.shared["play_greeting"] = True
+
     app = FastAPI(
         title="Ingenious Irrigation API",
         description="AI-driven irrigation orchestration for living systems.",
