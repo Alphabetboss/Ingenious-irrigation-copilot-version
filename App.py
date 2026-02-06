@@ -178,4 +178,14 @@ def main():
             logger.info(">> Powering down irrigation relays...")
             logger.info(">> Saving state to memory vault...")
             logger.info(">> Disconnecting weather uplink...")
-            logger.info(">> Shutdown complete
+            logger.info(">> Shutdown complete.")
+
+            orchestrator.shutdown()
+            sys.exit(0)
+
+
+# ---------------------------------------------------------
+# Entrypoint
+# ---------------------------------------------------------
+if __name__ == "__main__":
+    main()
