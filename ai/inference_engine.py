@@ -1,153 +1,151 @@
-import os
-from typing import Any, Dict, List, Optional
+"""
+Inference engine for plant/zone visual analysis.
 
-import numpy as np
+Responsibilities:
+- Load YOLO (or any object detection model) once at startup
+- Run inference on images (file path or bytes)
+- Return structured detections for downstream logic
+"""
 
-from core.app_context import AppContext
+from pathlib import Path
+from typing import List, Optional, Union
+import io
+
+from pydantic import BaseModel
+
+# If you’re using ultralytics YOLO, uncomment this and install `ultralytics`
+# from ultralytics import YOLO
+
+
+class Detection(BaseModel):
+    label: str
+    confidence: float
+    x_min: int
+    y_min: int
+    x_max: int
+    y_max: int
+
+
+class InferenceResult(BaseModel):
+    model_name: str
+    detections: List[Detection]
 
 
 class InferenceEngine:
-    """
-    Vision inference engine for Ingenious Irrigation.
+    def __init__(
+        self,
+        model_path: Union[str, Path],
+        confidence_threshold: float = 0.3,
+        device: str = "cpu",
+    ) -> None:
+        self.model_path = str(model_path)
+        self.confidence_threshold = confidence_threshold
+        self.device = device
 
-    - Wraps YOLO (Ultralytics) or future ONNX models
-    - Accepts BGR numpy frames
-    - Returns normalized, structured detections
-    """
-
-    def __init__(self, ctx: AppContext):
-        self.ctx = ctx
-        self.logger = getattr(self.ctx, "logger", None)
-
-        self.runtime: str = ctx.get("ai", "runtime", default="yolo")
-        self.models_cfg: Dict[str, Any] = ctx.get("ai", "models", default={})
-        self.vision_model_path: Optional[str] = self.models_cfg.get("vision_health_model")
-
-        self.model = None
-        self.class_map: Dict[int, str] = self.models_cfg.get(
-            "class_map",
-            {
-                0: "grass_green",
-                1: "grass_dry",
-                2: "grass_dead",
-                3: "water_pooling",
-                4: "mud",
-            },
-        )
-
-        self._load_model()
-
-    def _log(self, level: str, msg: str, *args):
-        if self.logger:
-            getattr(self.logger, level)(msg, *args)
+        # Lazy-loaded model
+        self._model = None
 
     def _load_model(self):
-        if not self.vision_model_path or not os.path.exists(self.vision_model_path):
-            self._log(
-                "warning",
-                "Vision model path not found (%s). Running in stub mode.",
-                self.vision_model_path,
-            )
-            self.model = None
+        if self._model is not None:
             return
 
-        if self.runtime == "yolo":
-            try:
-                from ultralytics import YOLO  # type: ignore[import]
+        # Example with YOLO; adapt if you use another framework
+        # self._model = YOLO(self.model_path)
+        # self._model.to(self.device)
 
-                self.model = YOLO(self.vision_model_path)
-                self._log("info", "Loaded YOLO model from %s", self.vision_model_path)
-            except Exception as e:
-                self._log(
-                    "exception",
-                    "Failed to load YOLO model; falling back to stub mode: %s",
-                    e,
-                )
-                self.model = None
-        else:
-            # Placeholder for ONNX or other runtimes
-            self._log(
-                "warning",
-                "Runtime '%s' not implemented yet. Using stub mode.",
-                self.runtime,
-            )
-            self.model = None
+        # Placeholder so the rest of the app doesn’t break if model isn’t wired yet
+        self._model = "DUMMY_MODEL"
 
-    def is_stub(self) -> bool:
-        return self.model is None
+    @property
+    def model_name(self) -> str:
+        return Path(self.model_path).name
 
-    def run_on_frame(self, frame_bgr: np.ndarray) -> List[Dict[str, Any]]:
-        """
-        Run inference on a BGR frame.
-
-        Returns:
-            List of detections:
-            [
-                {
-                    "class_id": int,
-                    "class_name": str,
-                    "confidence": float,
-                    "box": [x1, y1, x2, y2],
-                },
-                ...
-            ]
-        """
-        if self.model is None:
-            return self._stub_detections()
-
-        try:
-            results = self.model(frame_bgr, imgsz=640)
-            detections: List[Dict[str, Any]] = []
-
-            for r in results:
-                boxes = getattr(r, "boxes", None)
-                if boxes is None:
-                    continue
-
-                for b in boxes:
-                    cls_id = int(b.cls[0])
-                    conf = float(b.conf[0])
-                    xyxy = b.xyxy[0].tolist()
-                    class_name = self.class_map.get(cls_id, f"class_{cls_id}")
-
-                    detections.append(
-                        {
-                            "class_id": cls_id,
-                            "class_name": class_name,
-                            "confidence": conf,
-                            "box": xyxy,
-                        }
-                    )
-
-            self._log(
-                "info",
-                "Inference produced %s detections (stub=%s)",
-                len(detections),
-                self.is_stub(),
-            )
-            return detections
-
-        except Exception as e:
-            self._log("exception", "Vision inference failed: %s", e)
-            return []
-
-    def _stub_detections(self) -> List[Dict[str, Any]]:
-        """
-        Fallback heuristic when no model is available.
-        Pretends we see mostly healthy grass with a hint of dryness.
-        """
-        self._log("info", "Using stub detections (no vision model loaded).")
+    def _run_dummy_inference(self) -> List[Detection]:
+        # Safe fallback for now; replace with real model logic
         return [
-            {
-                "class_id": 0,
-                "class_name": "grass_green",
-                "confidence": 0.9,
-                "box": [0, 0, 100, 100],
-            },
-            {
-                "class_id": 1,
-                "class_name": "grass_dry",
-                "confidence": 0.25,
-                "box": [120, 80, 220, 180],
-            },
+            Detection(
+                label="plant",
+                confidence=0.85,
+                x_min=100,
+                y_min=120,
+                x_max=220,
+                y_max=260,
+            )
         ]
+
+    def run_on_bytes(self, image_bytes: bytes) -> InferenceResult:
+        """
+        Run inference on raw image bytes.
+        """
+        self._load_model()
+
+        # If using real YOLO:
+        # img = io.BytesIO(image_bytes)
+        # results = self._model(img)
+        # detections = self._parse_yolo_results(results)
+
+        detections = self._run_dummy_inference()
+
+        return InferenceResult(
+            model_name=self.model_name,
+            detections=detections,
+        )
+
+    def run_on_path(self, image_path: Union[str, Path]) -> InferenceResult:
+        """
+        Run inference on an image file path.
+        """
+        self._load_model()
+
+        # If using real YOLO:
+        # results = self._model(str(image_path))
+        # detections = self._parse_yolo_results(results)
+
+        detections = self._run_dummy_inference()
+
+        return InferenceResult(
+            model_name=self.model_name,
+            detections=detections,
+        )
+
+    # Example parser if you wire YOLO:
+    # def _parse_yolo_results(self, results) -> List[Detection]:
+    #     detections: List[Detection] = []
+    #     for r in results:
+    #         boxes = r.boxes
+    #         for box in boxes:
+    #             x_min, y_min, x_max, y_max = box.xyxy[0].tolist()
+    #             conf = float(box.conf[0])
+    #             cls_id = int(box.cls[0])
+    #             label = self._model.names[cls_id]
+    #
+    #             if conf < self.confidence_threshold:
+    #                 continue
+    #
+    #             detections.append(
+    #                 Detection(
+    #                     label=label,
+    #                     confidence=conf,
+    #                     x_min=int(x_min),
+    #                     y_min=int(y_min),
+    #                     x_max=int(x_max),
+    #                     y_max=int(y_max),
+    #                 )
+    #             )
+    #     return detections
+
+
+# Singleton-style accessor for FastAPI startup wiring
+_inference_engine: Optional[InferenceEngine] = None
+
+
+def get_inference_engine() -> InferenceEngine:
+    global _inference_engine
+    if _inference_engine is None:
+        # Adjust model path to wherever you store weights
+        _inference_engine = InferenceEngine(
+            model_path="models/plant_yolo.pt",
+            confidence_threshold=0.35,
+            device="cpu",
+        )
+    return _inference_engine
