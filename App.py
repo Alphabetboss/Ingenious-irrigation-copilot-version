@@ -29,6 +29,14 @@ from weather.weather_service import WeatherService
 
 
 # ---------------------------------------------------------
+# Terminal Color Overrides (Chrome-Green Hacker Style)
+# ---------------------------------------------------------
+logging.addLevelName(logging.INFO, "\033[92mINFO\033[0m")
+logging.addLevelName(logging.WARNING, "\033[93mWARN\033[0m")
+logging.addLevelName(logging.ERROR, "\033[91mERROR\033[0m")
+
+
+# ---------------------------------------------------------
 # Application Context Manager
 # ---------------------------------------------------------
 @contextmanager
@@ -46,18 +54,11 @@ def application_context():
 
     logger = configure_root_logger(raw_config)
     ctx.logger = logger
-    
-logging.addLevelName(logging.INFO, "\033[92mINFO\033[0m")
-logging.addLevelName(logging.WARNING, "\033[93mWARN\033[0m")
-logging.addLevelName(logging.ERROR, "\033[91mERROR\033[0m")
 
-    logger.info("=== Ingenious Irrigation Boot Sequence ===")
-    logger.info("System Name: %s", ctx.get("system", "name", default="Ingenious Irrigation"))
-    logger.info("Environment: %s", ctx.get("system", "environment", default="unknown"))
-    logger.info("Simulation Mode: %s", ctx.simulation_mode)
-
-# Futuristic chrome-green boot banner
-banner = r"""
+    # -----------------------------------------------------
+    # Futuristic chrome-green boot banner
+    # -----------------------------------------------------
+    banner = r"""
    ███████╗██╗███╗   ██╗ ██████╗ ███████╗██╗   ██╗██╗███████╗
    ██╔════╝██║████╗  ██║██╔════╝ ██╔════╝██║   ██║██║██╔════╝
    █████╗  ██║██╔██╗ ██║██║  ███╗█████╗  ██║   ██║██║███████╗
@@ -68,14 +69,19 @@ banner = r"""
                 I N G E N I O U S   I R R I G A T I O N   O S
 --------------------------------------------------------------------------------
 """
-logger.info("\n%s", banner)
-logger.info(">> Initializing quantum hydration matrix...")
-logger.info(">> Spinning up AI inference core...")
-logger.info(">> Activating irrigation control relays...")
-logger.info(">> Linking weather intelligence network...")
-logger.info(">> Establishing secure uplink to dashboard...")
-logger.info(">> System integrity: STABLE")
-logger.info(">> Boot sequence: COMPLETE\n")
+    logger.info("\n%s", banner)
+
+    logger.info(">> Initializing quantum hydration matrix...")
+    logger.info(">> Spinning up AI inference core...")
+    logger.info(">> Activating irrigation control relays...")
+    logger.info(">> Linking weather intelligence network...")
+    logger.info(">> Establishing secure uplink to dashboard...")
+    logger.info(">> System integrity: STABLE")
+    logger.info(">> Boot sequence: COMPLETE\n")
+
+    logger.info("System Name: %s", ctx.get("system", "name", default="Ingenious Irrigation"))
+    logger.info("Environment: %s", ctx.get("system", "environment", default="unknown"))
+    logger.info("Simulation Mode: %s", ctx.simulation_mode)
 
     try:
         yield ctx
@@ -161,15 +167,15 @@ def main():
             logger.warning("KeyboardInterrupt received — shutting down...")
 
         finally:
-            logger.info("Stopping orchestrator and background services...")
-            orchestrator.shutdown()
-
-            logger.info("Ingenious Irrigation shutdown complete.")
-            sys.exit(0)
-
-
-# ---------------------------------------------------------
-# Entrypoint
-# ---------------------------------------------------------
-if __name__ == "__main__":
-    main()
+            # Futuristic shutdown banner
+            shutdown_banner = r"""
+──────────────────────────────────────────────────────────────
+   S Y S T E M   S H U T D O W N   I N I T I A T E D
+──────────────────────────────────────────────────────────────
+"""
+            logger.info("\n%s", shutdown_banner)
+            logger.info(">> Releasing AI cores...")
+            logger.info(">> Powering down irrigation relays...")
+            logger.info(">> Saving state to memory vault...")
+            logger.info(">> Disconnecting weather uplink...")
+            logger.info(">> Shutdown complete
