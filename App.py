@@ -46,6 +46,10 @@ def application_context():
 
     logger = configure_root_logger(raw_config)
     ctx.logger = logger
+    
+logging.addLevelName(logging.INFO, "\033[92mINFO\033[0m")
+logging.addLevelName(logging.WARNING, "\033[93mWARN\033[0m")
+logging.addLevelName(logging.ERROR, "\033[91mERROR\033[0m")
 
     logger.info("=== Ingenious Irrigation Boot Sequence ===")
     logger.info("System Name: %s", ctx.get("system", "name", default="Ingenious Irrigation"))
