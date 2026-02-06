@@ -43,16 +43,27 @@ def create_api_app(
     irrigation_controller: IrrigationController,
     weather_service: WeatherService,
 ) -> FastAPI:
-    @app.on_event("startup")
-async def startup_voice_greeting():
-    ctx.logger.info("Astra: Preparing verbal greeting...")
-    ctx.shared["play_greeting"] = True
 
     app = FastAPI(
         title="Ingenious Irrigation API",
-        description="AI-driven irrigation orchestration for living systems.",
+        description="AI-driven irrigation optimization",
         version="0.2.0",
     )
+
+    # Astra verbal greeting on startup
+    @app.on_event("startup")
+    async def startup_voice_greeting():
+        ctx.logger.info("Astra: Preparing verbal greeting...")
+        ctx.shared["play_greeting"] = True
+
+    # Static + templates
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+    @app.get("/", response_class=HTMLResponse)
+    def root():
+        with open("templates/dashboard.html") as f:
+            return HTMLResponse(content=f.read())
+
 
     # Static + templates (for dashboard.html)
     app.mount("/static", StaticFiles(directory="static"), name="static")
